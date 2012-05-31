@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+        <style type="text/css">
+    	    html,body
+    	    {
+        		margin: 0px;
+        		padding: 0px;
+        		height: 100%;
+    	       	width: 100%;
+            }
+
+            table
+            {
+                table-layout: auto;
+            }
+            td
+            {
+                background-color: #ffffff;
+                padding: 0px;
+                margin: 0px;
+                /*border: 1px solid #000000;*/
+                vertical-align: top;
+            }
+
+            .slice p
+            {
+                margin: 0px;
+                padding: 0px;
+            }
+            wbr:after { content: "\00200B" }
+        </style>
+        <script type="text/javascript" src="scripts/jquery-1.7.2.min.js"></script>
+        <script type="text/javascript">
+            $(function () {
+                $('#bluLine, #bluLineVert').hide();
+                $('body').css('cursor', 'crosshair');
+            });
+
+            var width;
+            var height;
+            var url;
+            $(window).load(function () {
+                var img = $('img:first').wrap('<table cellpadding="0" cellspacing="0" border="0"><tr><td></table>');
+                url = img.attr('src');
+                width = img.outerWidth();
+                height = img.outerHeight();
+                var div = $('<div/>');
+                div.css('display', 'block').css('width', width + 'px').css('min-height', height + 'px').css('background', 'transparent url(' + url + ') no-repeat scroll top left');
+                img.replaceWith(div);
+
+                $(window).trigger('resize');
+            });
+
+            $(window).resize(function () {
+                $('#bluLine').css('width', $(document).width() + 'px');
+                $('#bluLineVert').css('height', $(document).height() + 'px');
+            })
+
+            var slicing = false;
+            var slice;
+            var hist = [];
+            var histY = [];
+            var histX = [];
+            var element;
+            $('body').live('mousedown', function (e) {
+                if (!element.hasClass('slice') && element.parents('.slice').length == 0 && element.parents('table').length > 0)
+	        	{
+			        if (!!slice)
+                    {
+                        slice.remove();
+                        slice = null;
+                    }
+                    slicing = true;
+                    slice = $('<div class="slice" style="position: absolute; width: auto; height: auto; display: block; border: 1px dotted #000000;"></div>');
+                    $(element).prepend(slice);
+                    slice.css('top', e.pageY + 'px').css('left', e.pageX + 'px').css('bottom', $(document).outerHeight() - e.pageY + 'px').css('right', $(document).width() - e.pageX + 'px')//.text(e.pageY + ' ' + ($(document).outerHeight() - e.pageY));
+	        }
+            });
+
+            $('body').live('mousemove', function (e) {
+                if (!!slicing && !!slice)
+                {
+                    var y = e.pageY > height ? height : e.pageY;
+                    var x = e.pageX > width ? width : e.pageX;
+
+                    var parentY = slice.parent().offset().top + slice.parent().height();
+                    var parentX = slice.parent().offset().left + slice.parent().width();
+
+                    y = y > parentY ? parentY : y;
+                    x = x > parentX ? parentX : x;
+
+                    slice.css('bottom', ($(window).height() - y) + 'px').css('right', ($(document).width() - x) + 'px');
+                }
+            });
+
+            $('body').live('mouseup', function (e) {
+                if (!!slicing)
+                {
+                    if (slice.height() > 0)
+                    {
+                        var div = slice.parent();
+                        var table = $('<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td colspan="3"><div></div></td></tr><tr><td><div></div></td><td></td><td><div></div></td></tr><tr><td colspan="3"><div></div></td></tr></table>');
+
+                        //debugger;   
+                        var h = slice.height();
+                        slice.css('width', slice.width() + 'px').css('min-height', h + 'px').css('background-color', '#ffffff').css('font-size', h + 'px').css('line-height', h + 'px').css('bottom', '').css('right', '').css('vertical-align', 'top');
+
+                        slice.replaceWith(table);
+
+                        table.css('height', '100%');
+
+                        var secondTd = $('tr:nth-child(2) td:nth-child(2)', table);
+                        secondTd.append(slice);
+                        secondTd.css('width', slice.outerWidth() + 'px').attr('width', slice.outerWidth());//.css('height', slice.outerHeight());
+
+                        var firstTd = $('td:first', table);
+                        firstTd.css('height', (slice.offset().top  - table.offset().top) + 'px');
+    		            setBackground(url, firstTd); 
+
+                        var thirdTd = $('tr:nth-child(2) td:nth-child(1)', table);
+                        thirdTd.css('width', (slice.offset().left - table.offset().left) + 'px').attr('width', slice.offset().left - table.offset().left);
+                        setBackground(url, thirdTd, slice.outerHeight());
+
+                        setBackground(url, $('tr:nth-child(2) td:nth-child(3)', table), slice.outerHeight())
+
+                        var fourthTd = $('tr:nth-child(3) td:nth-child(1)', table);
+                        var h = table.parent().height() - table.height();
+                        h = h < 0 ? 0 : h;
+                        fourthTd.css('height', h + 'px')
+                        setBackground(url, fourthTd)
+
+                        slice.css('position', 'static').attr('contentEditable', 'true');
+                        hist.push(slice);
+                        histY[slice.offset().top] = true;
+                        histY[slice.offset().top + slice.outerHeight()] = true;
+
+                        histX[slice.offset().left] = true;
+                        histX[slice.offset().left + slice.outerWidth()] = true;
+                    }
+                    else
+                    {
+                        slice.remove();
+                    }
+                    
+                }
+                slicing = false;   
+                slice = null;     
+            });
+
+            $('body').live('keydown', function (e) {
+                if (e.metaKey || e.ctrlKey)
+                {
+                    if (e.keyCode == 90)
+                    {
+                        var slice = hist.pop();
+                        histY = [];
+                        histX = [];
+                        $('.slice').each(function (i, e) {
+                            var slice = $(e);
+                            histY[slice.offset().top] = true;
+                            histY[slice.offset().top + slice.outerHeight()] = true;
+
+                            histX[slice.offset().left] = true;
+                            histX[slice.offset().left + slice.outerWidth()] = true;
+                        })
+                        
+
+                        slice.parents('table:first').remove();
+                    }
+                }
+            })
+
+            $('body').live('mousemove', function (e){
+                var currentElement = $(e.srcElement || e.target);
+                if (!currentElement.is('#bluLine') &&
+                    !currentElement.is('#bluLineVert'))
+                {
+                    element = currentElement;
+                }
+
+                var s = $(this);        
+                if (!!histY[e.pageY])
+                {
+                    $('#bluLine').show().css('top', e.pageY + 'px');
+                }
+                else
+                {
+                    $('#bluLine').hide();
+                }
+                if (!!histX[e.pageX])
+                {
+                    $('#bluLineVert').show().css('left', e.pageX + 'px');
+                }
+                else
+                {
+                    $('#bluLineVert').hide();
+                }
+            })
+
+            $('#bluLine, #bluLineVert').live('mousedown', function (e) {
+                $(this).hide();
+                if (!!element)
+                {
+                    e.srcElement = element;
+                    e.target = element;
+                    $('body').trigger('mousedown') 
+                }
+                    
+            })
+
+            $('.slice').live('keyup', function (e) {
+                var html = $(this).html();
+                if ($.trim(html) != '')
+                {
+                    //html = html.replace(/<wbr><\/wbr>/gi, '');
+                    //html = html.replace(/<wbr>/gi, '')
+                    //console.log(html)
+                    //html = html.replace(/([a-zA-Z])/g, '$1<wbr></wbr>')
+                    //console.log(html)
+                    //$(this).html(html)
+                }
+            })
+
+	    function setBackground(url, td, h)
+	    {
+            h = !!h ? h : td.height();
+            div = $('div', td);
+            div.css('width', '100%').css('min-height', h + 'px').css('font-size', h + 'px').css('line-height', h + 'px').css('background', 'transparent url(' + url + ') no-repeat scroll ' + -1 * div.offset().left + 'px ' + -1 * div.offset().top + 'px');
+        }
+        </script>
+    </head>
+    <body>
+        <img alt="" src="images/i9.gif"/>
+        <div id="bluLine" style="position: absolute; display: block; height: 1px; line-height: 1px; font-size: 1px; width: 100%; background-color: #0000ff"></div>
+        <div id="bluLineVert" style="position: absolute; display: block; height: 100%; line-height: 0px; font-size: 1px; width: 1px; background-color: #0000ff; top: 0px; left: 0px"></div>
+    </body>
+</html>
